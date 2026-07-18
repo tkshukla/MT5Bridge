@@ -7,7 +7,7 @@ pydantic==2.9.2
 pydantic-settings==2.5.2
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-neo-api-client==2.0.0
+git+https://github.com/Kotak-Neo/Kotak-neo-api-v2.git@8cee5bda63bd9334f8501bb23b7f1d2945f93397#egg=neo-api-client
 prometheus-client==0.20.0
 python-multipart==0.0.9
 tenacity==9.0.0
