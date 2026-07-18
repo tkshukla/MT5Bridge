@@ -25,6 +25,25 @@ from app.security import Principal, Role, require_role
 
 router = APIRouter(tags=["orders"])
 
+# neo_api_client's place_order/modify_order response shape for the order id wasn't
+# something we could verify without placing a real order (out of scope for a dry
+# integration check) — try the field names Kotak's docs/community commonly use, in
+# order, and fall back to storing the raw response if none match so it's visible for
+# a quick patch rather than silently losing the id.
+_ORDER_ID_KEYS = ("nOrdNo", "orderId", "order_id", "orderid")
+
+
+def _extract_kotak_order_id(result: dict) -> str | None:
+    payload = result.get("data", result) if isinstance(result, dict) else {}
+    if isinstance(payload, list) and payload:
+        payload = payload[0]
+    if not isinstance(payload, dict):
+        return None
+    for key in _ORDER_ID_KEYS:
+        if payload.get(key):
+            return str(payload[key])
+    return None
+
 
 async def _get_active_symbol(db: AsyncSession, symbol: str) -> Symbol:
     row = (await db.execute(select(Symbol).where(Symbol.symbol == symbol, Symbol.is_active.is_(True)))).scalar_one_or_none()
@@ -80,6 +99,7 @@ async def manual_order(
     try:
         result = await kotak_client.place_order(
             symbol=body.symbol,
+            kotak_exchange_segment=symbol_row.kotak_exchange_segment,
             side=body.side,
             quantity=body.quantity,
             order_type=body.order_type,
@@ -87,7 +107,7 @@ async def manual_order(
             price=body.price,
         )
         order.status = "PLACED"
-        order.kotak_order_id = result.get("orderId") or result.get("data", {}).get("orderId")
+        order.kotak_order_id = _extract_kotak_order_id(result)
         ORDER_ACTIONS_TOTAL.labels(action="place", result="success").inc()
         audit_result, audit_detail = "success", None
     except KotakApiError as exc:
@@ -138,7 +158,12 @@ async def modify_order(
 
     kotak_client = request.app.state.kotak_client
     try:
-        await kotak_client.modify_order(kotak_order_id=body.order_id, quantity=body.quantity, price=body.price)
+        await kotak_client.modify_order(
+            kotak_order_id=body.order_id,
+            quantity=body.quantity,
+            price=body.price,
+            order_type=existing.order_type,
+        )
         result_status, reject_reason = "MODIFIED", None
         ORDER_ACTIONS_TOTAL.labels(action="modify", result="success").inc()
     except KotakApiError as exc:
@@ -189,6 +214,7 @@ async def close_position(
 ) -> OrderOut:
     assert_confirmation_fresh(body.confirmed_at)
 
+    symbol_row = await _get_active_symbol(db, body.symbol)
     position = (
         await db.execute(select(Position).where(Position.symbol == body.symbol, Position.product == body.product))
     ).scalar_one_or_none()
@@ -228,6 +254,7 @@ async def close_position(
     try:
         result = await kotak_client.place_order(
             symbol=body.symbol,
+            kotak_exchange_segment=symbol_row.kotak_exchange_segment,
             side=side,
             quantity=close_qty,
             order_type="MARKET",
@@ -235,7 +262,7 @@ async def close_position(
             price=None,
         )
         order.status = "PLACED"
-        order.kotak_order_id = result.get("orderId") or result.get("data", {}).get("orderId")
+        order.kotak_order_id = _extract_kotak_order_id(result)
         ORDER_ACTIONS_TOTAL.labels(action="close", result="success").inc()
         audit_result, audit_detail = "success", None
     except KotakApiError as exc:

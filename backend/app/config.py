@@ -32,15 +32,17 @@ class Settings(BaseSettings):
     # Order confirmation anti-replay
     order_token_ttl_seconds: int = 60
 
-    # Kotak Neo (UNVERIFIED field names/endpoints — see README disclaimer)
-    kotak_neo_base_url: str = "https://gw-napi.kotaksecurities.com"
-    kotak_neo_ws_url: str = "wss://mlhsi.kotaksecurities.com/realtime"
-    kotak_neo_api_key: str = ""
-    kotak_neo_api_secret: str = ""
-    kotak_neo_client_id: str = ""
+    # Kotak Neo — via the official `neo-api-client` SDK (confirmed against v2.0.0).
+    # consumer_key/neo_fin_key/ucc/mobile_number are static per-app/per-account identifiers
+    # and belong in .env. TOTP and MPIN are NOT static secrets — the SDK's totp_login/
+    # totp_validate flow requires them fresh on every login, so they are never stored here;
+    # they're supplied per-call to POST /auth/kotak-login (see routers/auth.py).
+    kotak_neo_environment: str = "prod"  # "prod" or "uat"
+    kotak_neo_consumer_key: str = ""
+    kotak_neo_consumer_secret: str = ""  # optional per SDK; not required for totp_login/totp_validate
+    kotak_neo_neo_fin_key: str = ""
+    kotak_neo_ucc: str = ""
     kotak_neo_mobile_number: str = ""
-    kotak_neo_password: str = ""
-    kotak_neo_totp_secret: str = ""
     kotak_neo_poll_interval_seconds: float = 5.0
 
     # Explicit, auditable kill-switch placeholder — see docs/SECURITY.md.

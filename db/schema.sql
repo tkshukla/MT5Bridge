@@ -7,10 +7,14 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- symbols: tradable instrument master + MT5 custom-symbol mapping
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS symbols (
-    symbol            TEXT PRIMARY KEY,          -- Kotak Neo trading symbol, e.g. NIFTY24JULFUT
-    exchange          TEXT NOT NULL,              -- NSE, NFO, BSE, MCX...
-    segment           TEXT NOT NULL,              -- EQ, FUT, OPT, INDEX
-    instrument_token  TEXT,                       -- Kotak Neo instrument/token id (UNVERIFIED field name)
+    symbol            TEXT PRIMARY KEY,          -- Kotak Neo trading_symbol, e.g. NIFTY24JULFUT — used as-is
+                                                   -- in neo_api_client place_order/modify_order calls
+    exchange          TEXT NOT NULL,              -- NSE, NFO, BSE, MCX... (informational)
+    segment           TEXT NOT NULL,              -- EQ, FUT, OPT, INDEX (informational)
+    kotak_exchange_segment TEXT NOT NULL,          -- neo_api_client exchange_segment code, e.g. "NSECM",
+                                                   -- "NSEFO", "BSECM", "BSEFO", "MCXFO" — set per Kotak Neo's
+                                                   -- own segment codes for this instrument, not inferred
+    instrument_token  TEXT,                       -- Kotak Neo scrip/instrument token (from scrip_master/search_scrip)
     underlying        TEXT,                       -- e.g. NIFTY for an option/future
     expiry            DATE,                       -- NULL for equities/indices
     strike            NUMERIC(18, 4),             -- NULL unless an option

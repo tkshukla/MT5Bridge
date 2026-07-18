@@ -59,9 +59,10 @@ Symptoms: tick-rate dashboard flatlines; `/health` shows `kotak_feed: "disconnec
 - **Dependency updates**: `backend/requirements.txt` pinned versions, bumped via a
   scheduled Dependabot PR (`.github/workflows/`), reviewed and merged manually — never
   auto-merged given this touches a broker connection.
-- **Kotak Neo API changes**: since the client is written from general knowledge (see
-  README disclaimer), periodically diff against Kotak Neo's current published API
-  reference, especially after any Kotak Neo platform announcement.
+- **Kotak Neo API changes**: the client wraps the official `neo-api-client` SDK — watch
+  for SDK version bumps (`pip index versions neo-api-client`) and re-check
+  `kotak/websocket_feed.py`'s message-field assumptions (still `# UNVERIFIED`, see
+  README) the first time you observe a live tick.
 
 ## Escalation
 

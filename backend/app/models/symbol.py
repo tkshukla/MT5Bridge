@@ -12,6 +12,7 @@ class Symbol(Base):
     symbol: Mapped[str] = mapped_column(String, primary_key=True)
     exchange: Mapped[str] = mapped_column(String, nullable=False)
     segment: Mapped[str] = mapped_column(String, nullable=False)
+    kotak_exchange_segment: Mapped[str] = mapped_column(String, nullable=False)
     instrument_token: Mapped[str | None] = mapped_column(String, nullable=True)
     underlying: Mapped[str | None] = mapped_column(String, nullable=True)
     expiry: Mapped[date | None] = mapped_column(Date, nullable=True)

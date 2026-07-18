@@ -1,98 +1,97 @@
 """
-Kotak Neo authentication (TOTP-based two-factor login).
+Kotak Neo authentication, via the official `neo_api_client` SDK (confirmed against
+`neo-api-client==2.0.0` by inspecting the installed package directly — see
+CHANGELOG/commit history for how this was verified).
 
-UNVERIFIED: the exact login sequence, field names, and response shape below are
-written from general knowledge of Kotak Neo's published API pattern (2-step login:
-password grant, then TOTP validation, yielding a session token used as a bearer token
-for subsequent calls). Verify against your own Kotak Neo API credentials/docs in a
-sandbox before relying on this in production. See README.md and docs/SECURITY.md.
+The real login flow is two calls on a `NeoAPI` instance:
+  1. `totp_login(mobile_number, ucc, totp)` — mobile number + UCC (Unique Client Code)
+     + the 6-digit authenticator TOTP code.
+  2. `totp_validate(mpin)` — the account's 6-digit MPIN.
+
+TOTP and MPIN are NOT static secrets — TOTP is a fresh 6-digit code every 30 seconds,
+and MPIN, while stable, is a login credential this codebase does not store (same
+policy as never storing a broker password). Both are supplied live, per login, via
+`POST /auth/kotak-login` (see routers/auth.py) — never persisted in `.env` or the
+database. `consumer_key`/`neo_fin_key`/`ucc`/`mobile_number` are static per-app/
+per-account identifiers and do live in `.env`.
+
+The resulting `NeoAPI` instance (holding its own access/session token internally)
+is cached in memory only, for the lifetime of the backend process. Restarting the
+backend requires calling `/auth/kotak-login` again.
 """
 
-import time
-from dataclasses import dataclass
+import asyncio
+import logging
 
-import httpx
-import pyotp
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from neo_api_client import NeoAPI
 
 from app.config import Settings
 from app.kotak.exceptions import KotakAuthError
 
+logger = logging.getLogger("mt5bridge.kotak.auth")
 
-@dataclass
-class KotakSession:
-    access_token: str
-    session_token: str
-    sid: str
-    expires_at: float  # epoch seconds
+
+class KotakSessionManager:
+    def __init__(self, settings: Settings):
+        self._settings = settings
+        self._client: NeoAPI | None = None
+        self._ucc: str | None = None
 
     @property
-    def is_expired(self) -> bool:
-        return time.time() >= (self.expires_at - 30)  # refresh 30s before actual expiry
+    def is_authenticated(self) -> bool:
+        return self._client is not None
 
+    @property
+    def ucc(self) -> str | None:
+        return self._ucc
 
-class KotakAuthenticator:
-    def __init__(self, settings: Settings, http_client: httpx.AsyncClient):
-        self._settings = settings
-        self._http = http_client
-        self._session: KotakSession | None = None
+    def get_client(self) -> NeoAPI:
+        if self._client is None:
+            raise KotakAuthError("not logged in to Kotak Neo — call POST /auth/kotak-login first")
+        return self._client
 
-    async def get_session(self) -> KotakSession:
-        if self._session is None or self._session.is_expired:
-            self._session = await self._login()
-        return self._session
-
-    @retry(
-        reraise=True,
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        retry=retry_if_exception_type(KotakAuthError),
-    )
-    async def _login(self) -> KotakSession:
+    async def login(self, totp: str, mpin: str) -> dict:
+        """Performs totp_login + totp_validate. Returns a small, secret-free summary dict."""
         s = self._settings
-        totp_code = pyotp.TOTP(s.kotak_neo_totp_secret).now()
-
-        # Step 1: password grant -> short-lived "view token"  [UNVERIFIED endpoint/shape]
-        try:
-            resp = await self._http.post(
-                f"{s.kotak_neo_base_url}/login/1.0/login/v2/validate",
-                json={
-                    "mobileNumber": s.kotak_neo_mobile_number,
-                    "password": s.kotak_neo_password,
-                },
-                headers={"Authorization": f"Bearer {s.kotak_neo_api_key}"},
-                timeout=10.0,
+        if not (s.kotak_neo_consumer_key and s.kotak_neo_ucc and s.kotak_neo_mobile_number):
+            raise KotakAuthError(
+                "KOTAK_NEO_CONSUMER_KEY / KOTAK_NEO_UCC / KOTAK_NEO_MOBILE_NUMBER must be set in .env"
             )
-            resp.raise_for_status()
-            step1 = resp.json()
-        except httpx.HTTPError as exc:
-            raise KotakAuthError(f"Kotak Neo password-grant login failed: {exc}") from exc
 
-        view_token = step1.get("token") or step1.get("data", {}).get("token")
-        sid = step1.get("sid") or step1.get("data", {}).get("sid")
-        if not view_token or not sid:
-            raise KotakAuthError(f"Kotak Neo login response missing token/sid: {step1}")
-
-        # Step 2: TOTP validation -> full session token  [UNVERIFIED endpoint/shape]
-        try:
-            resp = await self._http.post(
-                f"{s.kotak_neo_base_url}/login/1.0/login/v2/validate/totp",
-                json={"sid": sid, "totp": totp_code},
-                headers={"Authorization": f"Bearer {view_token}"},
-                timeout=10.0,
+        def _do_login() -> dict:
+            client = NeoAPI(
+                environment=s.kotak_neo_environment,
+                consumer_key=s.kotak_neo_consumer_key,
+                consumer_secret=s.kotak_neo_consumer_secret or None,
+                neo_fin_key=s.kotak_neo_neo_fin_key or None,
             )
-            resp.raise_for_status()
-            step2 = resp.json()
-        except httpx.HTTPError as exc:
-            raise KotakAuthError(f"Kotak Neo TOTP validation failed: {exc}") from exc
+            login_resp = client.totp_login(mobile_number=s.kotak_neo_mobile_number, ucc=s.kotak_neo_ucc, totp=totp)
+            if not isinstance(login_resp, dict) or "data" not in login_resp:
+                raise KotakAuthError(f"unexpected totp_login response shape: {login_resp}")
 
-        session_token = step2.get("sessionToken") or step2.get("data", {}).get("sessionToken")
-        if not session_token:
-            raise KotakAuthError(f"Kotak Neo TOTP response missing sessionToken: {step2}")
+            validate_resp = client.totp_validate(mpin=mpin)
+            if not isinstance(validate_resp, dict) or "data" not in validate_resp:
+                raise KotakAuthError(f"unexpected totp_validate response shape: {validate_resp}")
 
-        return KotakSession(
-            access_token=view_token,
-            session_token=session_token,
-            sid=sid,
-            expires_at=time.time() + 8 * 3600,  # Kotak Neo sessions are typically day-long; verify actual TTL
-        )
+            return {"client": client, "data": validate_resp["data"]}
+
+        try:
+            result = await asyncio.to_thread(_do_login)
+        except KotakAuthError:
+            raise
+        except Exception as exc:
+            raise KotakAuthError(f"Kotak Neo login failed: {exc}") from exc
+
+        self._client = result["client"]
+        self._ucc = result["data"].get("ucc", s.kotak_neo_ucc)
+        logger.info("Kotak Neo login successful for UCC=%s", self._ucc)
+        return {"ucc": self._ucc, "greeting_name": result["data"].get("greetingName")}
+
+    def logout(self) -> None:
+        if self._client is not None:
+            try:
+                self._client.logout()
+            except Exception:
+                logger.exception("error during Kotak Neo logout (continuing anyway)")
+        self._client = None
+        self._ucc = None

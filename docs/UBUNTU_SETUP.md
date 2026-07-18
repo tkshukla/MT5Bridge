@@ -35,8 +35,9 @@ $EDITOR .env
 
 Required values — see `.env.example` for the full annotated list:
 
-- `KOTAK_NEO_API_KEY`, `KOTAK_NEO_API_SECRET`, `KOTAK_NEO_TOTP_SECRET`,
-  `KOTAK_NEO_CLIENT_ID` — from your Kotak Neo API developer console.
+- `KOTAK_NEO_CONSUMER_KEY`, `KOTAK_NEO_NEO_FIN_KEY`, `KOTAK_NEO_UCC`,
+  `KOTAK_NEO_MOBILE_NUMBER` — from your Kotak Neo API developer console / profile.
+  TOTP and MPIN are *not* set here — see `POST /auth/kotak-login` in docs/API.md.
 - `POSTGRES_PASSWORD`, `REDIS_PASSWORD` — generate with `openssl rand -hex 32`.
 - `JWT_SECRET_KEY` — generate with `openssl rand -hex 32`.
 - `MT5_STATIC_IP` — the Windows desktop's egress IP, for the Nginx allowlist.

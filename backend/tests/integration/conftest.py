@@ -51,8 +51,8 @@ async def seed_symbol():
         await conn.execute(
             text(
                 """
-                INSERT INTO symbols (symbol, exchange, segment, lot_size, tick_size, mt5_symbol_name)
-                VALUES ('NIFTY24JULFUT', 'NFO', 'FUT', 50, 0.05, 'NIFTY_FUT_JUL24')
+                INSERT INTO symbols (symbol, exchange, segment, kotak_exchange_segment, lot_size, tick_size, mt5_symbol_name)
+                VALUES ('NIFTY24JULFUT', 'NFO', 'FUT', 'NSEFO', 50, 0.05, 'NIFTY_FUT_JUL24')
                 """
             )
         )

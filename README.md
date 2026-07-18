@@ -4,12 +4,18 @@ MetaTrader 5 as a charting / analytics / portfolio dashboard for **Kotak Neo**, 
 **manual-confirmation-only** order execution. MT5 never places an order on its own —
 every trade is a deliberate, user-clicked, confirmed action.
 
-> **Kotak Neo API disclaimer**: the Kotak Neo client in `backend/app/kotak/` is written
-> against Kotak Securities' publicly documented Neo Trade API / TOTP login flow / WebSocket
-> feed *as generally known*, not against a live-verified current spec. Endpoint paths,
-> field names, and WS message shapes are marked `# UNVERIFIED` in code and **must be
-> checked against your own Kotak Neo API credentials/docs in a sandbox before going live**.
-> Do not point this at a funded account until you've done that verification pass.
+> **Kotak Neo API status**: `backend/app/kotak/` wraps the official `neo_api_client`
+> Python SDK (`neo-api-client==2.0.0`). The login flow (`totp_login` + `totp_validate`),
+> method names, and signatures (`positions`, `holdings`, `limits`, `place_order`,
+> `modify_order`, `cancel_order`, `subscribe`) were confirmed by inspecting the actual
+> installed package, not guessed. TOTP and MPIN are dynamic — never stored, supplied
+> live via `POST /auth/kotak-login` each session (see docs/SECURITY.md). Two things are
+> still `# UNVERIFIED` in code because confirming them requires a live market-hours
+> feed subscription or placing a real order: the `subscribe()` instrument-token item
+> shape and the live tick message field names in `kotak/websocket_feed.py`, and the
+> exact order-id field name in `place_order`'s response in `routers/orders.py`. Watch
+> the logs the first time you subscribe/place an order and patch those two spots if the
+> field names differ from the current best-guess.
 
 ## Why this exists
 

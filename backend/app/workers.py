@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 
 from app.db import async_session_factory
+from app.kotak.auth import KotakSessionManager
 from app.kotak.client import KotakClient
 from app.kotak.exceptions import KotakApiError
 from app.redis_client import get_redis
@@ -70,7 +71,10 @@ async def handle_tick(tick: dict) -> None:
         await db.commit()
 
 
-async def poll_portfolio_once(kotak_client: KotakClient) -> None:
+async def poll_portfolio_once(kotak_client: KotakClient, session_manager: KotakSessionManager) -> None:
+    if not session_manager.is_authenticated:
+        return  # normal before the daily POST /auth/kotak-login call — not an error to log
+
     redis = get_redis()
     async with async_session_factory() as db:
         try:

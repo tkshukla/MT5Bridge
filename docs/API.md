@@ -22,6 +22,27 @@ No auth required. Returns liveness of the app and its dependencies.
 }
 ```
 
+## Kotak Neo login (role: `admin`)
+
+### `POST /auth/kotak-login`
+
+Call once each morning (or after any backend restart) before the read/order endpoints
+will return live data — `positions`/`holdings`/`portfolio`/order placement all require
+an authenticated Kotak Neo session, which is held in memory only and lost on restart.
+TOTP and MPIN are never stored; you supply them fresh in this call.
+
+```json
+{"totp": "123456", "mpin": "1234"}
+```
+
+Response:
+
+```json
+{"ucc": "ABC123", "greeting_name": "Your Name"}
+```
+
+`401` if the TOTP/MPIN is rejected by Kotak Neo.
+
 ## Read endpoints (role: `viewer` or above)
 
 | Method | Path                 | Description                                    |
