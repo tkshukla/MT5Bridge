@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: mt5bridge_backend
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["backend:8000"]
+    # A long-lived viewer-scope JWT, minted once via scripts/mint_metrics_token.py and
+    # mounted read-only into the Prometheus container (see docker-compose.yml). Vanilla
+    # Prometheus scrape_configs don't support the X-API-Key header our other clients
+    # use, so /metrics also accepts a standard Authorization: Bearer JWT — same auth
+    # path, just a token with a much longer TTL than the 15-minute default.
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/mt5bridge_metrics_token
+    scrape_interval: 10s
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -1,0 +1,39 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Docker
+*.log
+
+# Postgres / Redis local data volumes
+pgdata/
+redisdata/
+
+# Grafana local data
+monitoring/grafana/data/
+monitoring/metrics_token
+
+# MQL5 compiled artifacts
+*.ex5
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

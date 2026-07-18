@@ -1,0 +1,85 @@
+{
+  "title": "MT5Bridge Overview",
+  "uid": "mt5bridge-overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "title": "API request latency (p95)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mt5bridge_http_request_latency_seconds_bucket[5m])) by (le, path))",
+          "legendFormat": "{{path}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "API health (up)",
+      "type": "stat",
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+      "targets": [{"expr": "up{job=\"mt5bridge_backend\"}"}]
+    },
+    {
+      "id": 3,
+      "title": "Kotak Neo feed connected",
+      "type": "stat",
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+      "targets": [{"expr": "mt5bridge_kotak_feed_connected"}]
+    },
+    {
+      "id": 4,
+      "title": "Tick rate (ticks/sec by symbol)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(mt5bridge_ticks_received_total[1m])) by (symbol)",
+          "legendFormat": "{{symbol}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "WebSocket clients connected",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {
+          "expr": "mt5bridge_ws_clients_connected",
+          "legendFormat": "{{endpoint}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Order actions (rate by result)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [
+        {
+          "expr": "sum(rate(mt5bridge_order_actions_total[15m])) by (action, result)",
+          "legendFormat": "{{action}} - {{result}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "HTTP error rate (5xx)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [
+        {
+          "expr": "sum(rate(mt5bridge_http_request_latency_seconds_count{status=~\"5..\"}[5m]))",
+          "legendFormat": "5xx/sec"
+        }
+      ]
+    }
+  ]
+}

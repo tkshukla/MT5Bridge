@@ -1,0 +1,35 @@
+name: Deploy
+
+# Deliberately manual-only (workflow_dispatch), not triggered on every push to main.
+# This bridges a live broker connection — deploys should be a deliberate action, same
+# philosophy as the "no unattended trading" rule for order placement (docs/SECURITY.md).
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm you want to deploy to the production VM'
+        required: true
+
+jobs:
+  deploy:
+    if: github.event.inputs.confirm == 'deploy'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/mt5bridge
+            git fetch origin main
+            git reset --hard origin/main
+            docker compose --env-file /etc/mt5bridge/mt5bridge.env up -d --build
+            bash scripts/healthcheck.sh
+
+      - name: Report
+        run: echo "Deployed $(git rev-parse HEAD) to ${{ secrets.DEPLOY_HOST }}"

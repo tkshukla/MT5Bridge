@@ -1,0 +1,10 @@
+[Unit]
+Description=MT5Bridge nightly Postgres backup
+After=mt5bridge.service
+Requires=mt5bridge.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mt5bridge
+EnvironmentFile=/etc/mt5bridge/mt5bridge.env
+ExecStart=/opt/mt5bridge/scripts/backup.sh
