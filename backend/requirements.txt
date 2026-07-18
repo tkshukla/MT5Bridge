@@ -1,5 +1,12 @@
 fastapi==0.115.0
-uvicorn[standard]==0.30.6
+# uvicorn WITHOUT the "standard" extra: that extra pulls in websockets>=10.4, which
+# conflicts with neo-api-client's pinned websockets==8.1. wsproto is uvicorn's other
+# supported WS backend and has no such conflict — see Dockerfile's --ws wsproto flag.
+uvicorn==0.30.6
+httptools==0.6.1
+uvloop==0.20.0
+watchfiles==0.24.0
+wsproto==1.2.0
 sqlalchemy[asyncio]==2.0.35
 asyncpg==0.29.0
 redis==5.0.8
