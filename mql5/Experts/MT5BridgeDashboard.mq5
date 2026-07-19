@@ -50,8 +50,10 @@ int OnInit()
       g_quote_symbols[0] = InpDefaultSymbol;
      }
 
+   Print("MT5BridgeDashboard OnInit starting on chart ", ChartID(), " symbol=", Symbol());
    BuildPanel();
    EventSetTimer(1);
+   Print("MT5BridgeDashboard OnInit complete");
    return(INIT_SUCCEEDED);
   }
 
@@ -114,22 +116,31 @@ void BuildPanel()
    CreateButton(PANEL_PREFIX + "btn_exit", "EXIT", 190, 150, 80, 26, clrOrange);
    CreateButton(PANEL_PREFIX + "btn_close", "CLOSE POSITION", 280, 150, 130, 26, clrGold);
    CreateButton(PANEL_PREFIX + "btn_modify", "MODIFY ORDER", 420, 150, 130, 26, clrDodgerBlue);
+
+   ChartRedraw(0);
+   Print("BuildPanel complete; objects on chart 0 = ", ObjectsTotal(0, -1, -1));
   }
 
 void CreateLabel(const string name, const string text, int x, int y, color clr)
   {
-   ObjectCreate(0, name, OBJ_LABEL, 0, 0, 0);
+   bool created = ObjectCreate(0, name, OBJ_LABEL, 0, 0, 0);
+   if(!created && ObjectFind(0, name) < 0)
+      Print("FAILED to create label '", name, "': error ", GetLastError());
    ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
    ObjectSetInteger(0, name, OBJPROP_XDISTANCE, x);
    ObjectSetInteger(0, name, OBJPROP_YDISTANCE, y);
    ObjectSetString(0, name, OBJPROP_TEXT, text);
    ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
    ObjectSetInteger(0, name, OBJPROP_FONTSIZE, 9);
+   ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, name, OBJPROP_HIDDEN, false);
   }
 
 void CreateButton(const string name, const string text, int x, int y, int w, int h, color clr)
   {
-   ObjectCreate(0, name, OBJ_BUTTON, 0, 0, 0);
+   bool created = ObjectCreate(0, name, OBJ_BUTTON, 0, 0, 0);
+   if(!created && ObjectFind(0, name) < 0)
+      Print("FAILED to create button '", name, "': error ", GetLastError());
    ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
    ObjectSetInteger(0, name, OBJPROP_XDISTANCE, x);
    ObjectSetInteger(0, name, OBJPROP_YDISTANCE, y);
@@ -139,6 +150,7 @@ void CreateButton(const string name, const string text, int x, int y, int w, int
    ObjectSetInteger(0, name, OBJPROP_BGCOLOR, clr);
    ObjectSetInteger(0, name, OBJPROP_COLOR, clrBlack);
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, name, OBJPROP_HIDDEN, false);
   }
 
 //--- NOTE: this MQL5 build has no OBJPROP_PASSWORD-style masking for OBJ_EDIT, so
@@ -147,7 +159,9 @@ void CreateButton(const string name, const string text, int x, int y, int w, int
 //--- click LOGIN, and both fields are cleared immediately after that click either way.
 void CreateEdit(const string name, const string text, int x, int y, int w, int h)
   {
-   ObjectCreate(0, name, OBJ_EDIT, 0, 0, 0);
+   bool created = ObjectCreate(0, name, OBJ_EDIT, 0, 0, 0);
+   if(!created && ObjectFind(0, name) < 0)
+      Print("FAILED to create edit '", name, "': error ", GetLastError());
    ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
    ObjectSetInteger(0, name, OBJPROP_XDISTANCE, x);
    ObjectSetInteger(0, name, OBJPROP_YDISTANCE, y);
@@ -158,6 +172,8 @@ void CreateEdit(const string name, const string text, int x, int y, int w, int h
    ObjectSetInteger(0, name, OBJPROP_FONTSIZE, 9);
    ObjectSetInteger(0, name, OBJPROP_COLOR, clrBlack);
    ObjectSetInteger(0, name, OBJPROP_BGCOLOR, clrWhite);
+   ObjectSetInteger(0, name, OBJPROP_SELECTABLE, true);
+   ObjectSetInteger(0, name, OBJPROP_HIDDEN, false);
   }
 
 //+------------------------------------------------------------------+
