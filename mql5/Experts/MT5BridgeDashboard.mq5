@@ -55,7 +55,7 @@ int OnInit()
 
    Print("MT5BridgeDashboard OnInit starting on chart ", ChartID(), " symbol=", Symbol());
 
-   if(!ExtLoginPanel.Create(0, "KotakLoginPanel", 0, 10, 10, 570, 75))
+   if(!ExtLoginPanel.Create(0, "KotakLoginPanel", 0, 10, 10, 570, 100))
      {
       Print("FAILED to create Kotak login panel");
       return(INIT_FAILED);
@@ -109,18 +109,18 @@ void OnTimer()
 //+------------------------------------------------------------------+
 void BuildPanel()
   {
-   CreateLabel(PANEL_PREFIX + "title", "MT5Bridge — Kotak Neo (manual orders only)", 10, 85, clrWhite);
+   CreateLabel(PANEL_PREFIX + "title", "MT5Bridge — Kotak Neo (manual orders only)", 10, 110, clrWhite);
 
-   CreateLabel(PANEL_PREFIX + "quote", "Quote: ...", 10, 105, clrSilver);
-   CreateLabel(PANEL_PREFIX + "position", "Position: ...", 10, 125, clrSilver);
-   CreateLabel(PANEL_PREFIX + "holding", "Holding: ...", 10, 145, clrSilver);
-   CreateLabel(PANEL_PREFIX + "portfolio", "Portfolio: ...", 10, 165, clrSilver);
+   CreateLabel(PANEL_PREFIX + "quote", "Quote: ...", 10, 130, clrSilver);
+   CreateLabel(PANEL_PREFIX + "position", "Position: ...", 10, 150, clrSilver);
+   CreateLabel(PANEL_PREFIX + "holding", "Holding: ...", 10, 170, clrSilver);
+   CreateLabel(PANEL_PREFIX + "portfolio", "Portfolio: ...", 10, 190, clrSilver);
 
-   CreateButton(PANEL_PREFIX + "btn_buy", "BUY", 10, 195, 80, 26, clrLime);
-   CreateButton(PANEL_PREFIX + "btn_sell", "SELL", 100, 195, 80, 26, clrTomato);
-   CreateButton(PANEL_PREFIX + "btn_exit", "EXIT", 190, 195, 80, 26, clrOrange);
-   CreateButton(PANEL_PREFIX + "btn_close", "CLOSE POSITION", 280, 195, 130, 26, clrGold);
-   CreateButton(PANEL_PREFIX + "btn_modify", "MODIFY ORDER", 420, 195, 130, 26, clrDodgerBlue);
+   CreateButton(PANEL_PREFIX + "btn_buy", "BUY", 10, 220, 80, 26, clrLime);
+   CreateButton(PANEL_PREFIX + "btn_sell", "SELL", 100, 220, 80, 26, clrTomato);
+   CreateButton(PANEL_PREFIX + "btn_exit", "EXIT", 190, 220, 80, 26, clrOrange);
+   CreateButton(PANEL_PREFIX + "btn_close", "CLOSE POSITION", 280, 220, 130, 26, clrGold);
+   CreateButton(PANEL_PREFIX + "btn_modify", "MODIFY ORDER", 420, 220, 130, 26, clrDodgerBlue);
 
    ChartRedraw(0);
    Print("BuildPanel complete; objects on chart 0 = ", ObjectsTotal(0, -1, -1));

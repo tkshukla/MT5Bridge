@@ -56,7 +56,7 @@ bool CKotakLoginPanel::Create(const long chart, const string name, const int sub
 
 bool CKotakLoginPanel::CreateControls(void)
   {
-   int x = 10, y = 30, h = 20;
+   int x = 10, y = 15, h = 20;
 
    if(!m_totp_label.Create(m_chart_id, m_name + "TotpLabel", m_subwin, x, y, x + 40, y + h))
       return false;
