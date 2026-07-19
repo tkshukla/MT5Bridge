@@ -4,6 +4,11 @@
 //| positions, holdings and P&L, and offers BUY/SELL/EXIT/CLOSE/       |
 //| MODIFY buttons — each gated by an explicit confirmation dialog.    |
 //|                                                                     |
+//| Also includes a Kotak Neo login panel: TOTP + MPIN fields typed    |
+//| directly here are sent straight from MT5 to your own backend via  |
+//| POST /auth/kotak-login — neither value is stored anywhere, and     |
+//| neither ever passes through any third party. See docs/SECURITY.md. |
+//|                                                                     |
 //| SAFETY: there is no OnTick-driven order logic anywhere in this     |
 //| file. Every call to BridgeSubmitManualOrder / BridgeModifyOrder /   |
 //| BridgeClosePosition happens inside OnChartEvent, after the user    |
@@ -91,16 +96,24 @@ void OnTimer()
 void BuildPanel()
   {
    CreateLabel(PANEL_PREFIX + "title", "MT5Bridge — Kotak Neo (manual orders only)", 10, 10, clrWhite);
-   CreateLabel(PANEL_PREFIX + "quote", "Quote: ...", 10, 30, clrSilver);
-   CreateLabel(PANEL_PREFIX + "position", "Position: ...", 10, 50, clrSilver);
-   CreateLabel(PANEL_PREFIX + "holding", "Holding: ...", 10, 70, clrSilver);
-   CreateLabel(PANEL_PREFIX + "portfolio", "Portfolio: ...", 10, 90, clrSilver);
 
-   CreateButton(PANEL_PREFIX + "btn_buy", "BUY", 10, 120, 80, 26, clrLime);
-   CreateButton(PANEL_PREFIX + "btn_sell", "SELL", 100, 120, 80, 26, clrTomato);
-   CreateButton(PANEL_PREFIX + "btn_exit", "EXIT", 190, 120, 80, 26, clrOrange);
-   CreateButton(PANEL_PREFIX + "btn_close", "CLOSE POSITION", 280, 120, 130, 26, clrGold);
-   CreateButton(PANEL_PREFIX + "btn_modify", "MODIFY ORDER", 420, 120, 130, 26, clrDodgerBlue);
+   CreateLabel(PANEL_PREFIX + "login_label", "Kotak Login  TOTP:", 10, 32, clrSilver);
+   CreateEdit(PANEL_PREFIX + "edit_totp", "", 115, 29, 70, 20);
+   CreateLabel(PANEL_PREFIX + "mpin_label", "MPIN:", 195, 32, clrSilver);
+   CreateEdit(PANEL_PREFIX + "edit_mpin", "", 230, 29, 70, 20);
+   CreateButton(PANEL_PREFIX + "btn_kotak_login", "LOGIN", 310, 28, 80, 22, clrDodgerBlue);
+   CreateLabel(PANEL_PREFIX + "login_status", "Kotak: not logged in", 400, 32, clrOrange);
+
+   CreateLabel(PANEL_PREFIX + "quote", "Quote: ...", 10, 60, clrSilver);
+   CreateLabel(PANEL_PREFIX + "position", "Position: ...", 10, 80, clrSilver);
+   CreateLabel(PANEL_PREFIX + "holding", "Holding: ...", 10, 100, clrSilver);
+   CreateLabel(PANEL_PREFIX + "portfolio", "Portfolio: ...", 10, 120, clrSilver);
+
+   CreateButton(PANEL_PREFIX + "btn_buy", "BUY", 10, 150, 80, 26, clrLime);
+   CreateButton(PANEL_PREFIX + "btn_sell", "SELL", 100, 150, 80, 26, clrTomato);
+   CreateButton(PANEL_PREFIX + "btn_exit", "EXIT", 190, 150, 80, 26, clrOrange);
+   CreateButton(PANEL_PREFIX + "btn_close", "CLOSE POSITION", 280, 150, 130, 26, clrGold);
+   CreateButton(PANEL_PREFIX + "btn_modify", "MODIFY ORDER", 420, 150, 130, 26, clrDodgerBlue);
   }
 
 void CreateLabel(const string name, const string text, int x, int y, color clr)
@@ -126,6 +139,25 @@ void CreateButton(const string name, const string text, int x, int y, int w, int
    ObjectSetInteger(0, name, OBJPROP_BGCOLOR, clr);
    ObjectSetInteger(0, name, OBJPROP_COLOR, clrBlack);
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+  }
+
+//--- NOTE: this MQL5 build has no OBJPROP_PASSWORD-style masking for OBJ_EDIT, so
+//--- TOTP/MPIN are shown in plain text while typing. That's a local-screen-only
+//--- cosmetic limitation, not a security issue — nothing is sent anywhere until you
+//--- click LOGIN, and both fields are cleared immediately after that click either way.
+void CreateEdit(const string name, const string text, int x, int y, int w, int h)
+  {
+   ObjectCreate(0, name, OBJ_EDIT, 0, 0, 0);
+   ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+   ObjectSetInteger(0, name, OBJPROP_XDISTANCE, x);
+   ObjectSetInteger(0, name, OBJPROP_YDISTANCE, y);
+   ObjectSetInteger(0, name, OBJPROP_XSIZE, w);
+   ObjectSetInteger(0, name, OBJPROP_YSIZE, h);
+   ObjectSetString(0, name, OBJPROP_TEXT, text);
+   ObjectSetInteger(0, name, OBJPROP_ALIGN, ALIGN_LEFT);
+   ObjectSetInteger(0, name, OBJPROP_FONTSIZE, 9);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, clrBlack);
+   ObjectSetInteger(0, name, OBJPROP_BGCOLOR, clrWhite);
   }
 
 //+------------------------------------------------------------------+
@@ -183,7 +215,9 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
    if(id != CHARTEVENT_OBJECT_CLICK)
       return;
 
-   if(sparam == PANEL_PREFIX + "btn_buy")
+   if(sparam == PANEL_PREFIX + "btn_kotak_login")
+      HandleKotakLoginClick();
+   else if(sparam == PANEL_PREFIX + "btn_buy")
       HandleManualOrderClick(BRIDGE_SIDE_BUY);
    else if(sparam == PANEL_PREFIX + "btn_sell")
       HandleManualOrderClick(BRIDGE_SIDE_SELL);
@@ -197,6 +231,44 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
    // Release button visual "pressed" state
    if(ObjectFind(0, sparam) >= 0 && ObjectGetInteger(0, sparam, OBJPROP_TYPE) == OBJ_BUTTON)
       ObjectSetInteger(0, sparam, OBJPROP_STATE, false);
+  }
+
+void HandleKotakLoginClick()
+  {
+   string totp = ObjectGetString(0, PANEL_PREFIX + "edit_totp", OBJPROP_TEXT);
+   string mpin = ObjectGetString(0, PANEL_PREFIX + "edit_mpin", OBJPROP_TEXT);
+
+   if(totp == "" || mpin == "")
+     {
+      ObjectSetString(0, PANEL_PREFIX + "login_status", OBJPROP_TEXT, "Kotak: enter TOTP + MPIN");
+      return;
+     }
+
+   ObjectSetString(0, PANEL_PREFIX + "login_status", OBJPROP_TEXT, "Kotak: logging in...");
+   ChartRedraw();
+
+   string ucc = "";
+   string error = "";
+   bool ok = BridgeKotakLogin(totp, mpin, ucc, error);
+
+   // Clear both fields immediately either way — a TOTP is single-use regardless of
+   // outcome, and there is no reason to leave MPIN sitting typed on screen.
+   ObjectSetString(0, PANEL_PREFIX + "edit_totp", OBJPROP_TEXT, "");
+   ObjectSetString(0, PANEL_PREFIX + "edit_mpin", OBJPROP_TEXT, "");
+
+   if(ok)
+     {
+      ObjectSetString(0, PANEL_PREFIX + "login_status", OBJPROP_TEXT, "Kotak: logged in (" + ucc + ")");
+      ObjectSetInteger(0, PANEL_PREFIX + "login_status", OBJPROP_COLOR, clrLime);
+      Print("Kotak Neo login successful, ucc=", ucc);
+     }
+   else
+     {
+      ObjectSetString(0, PANEL_PREFIX + "login_status", OBJPROP_TEXT, "Kotak: login failed");
+      ObjectSetInteger(0, PANEL_PREFIX + "login_status", OBJPROP_COLOR, clrTomato);
+      Print("Kotak Neo login failed: ", error);
+      MessageBox("Kotak Neo login failed: " + error, "MT5Bridge", MB_OK | MB_ICONERROR);
+     }
   }
 
 void HandleManualOrderClick(ENUM_BRIDGE_SIDE side)

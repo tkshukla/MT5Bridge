@@ -27,7 +27,7 @@ class KotakLoginResponse(BaseModel):
 async def kotak_login(
     body: KotakLoginRequest,
     request: Request,
-    _principal: Principal = Depends(require_role(Role.ADMIN)),
+    _principal: Principal = Depends(require_role(Role.TRADER)),
 ) -> KotakLoginResponse:
     session_manager = request.app.state.kotak_session_manager
     try:

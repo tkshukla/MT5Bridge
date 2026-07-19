@@ -22,7 +22,7 @@ No auth required. Returns liveness of the app and its dependencies.
 }
 ```
 
-## Kotak Neo login (role: `admin`)
+## Kotak Neo login (role: `trader` or above)
 
 ### `POST /auth/kotak-login`
 

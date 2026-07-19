@@ -172,6 +172,27 @@ bool BridgeGetPortfolio(BridgePortfolio &out_portfolio)
    return true;
   }
 
+//--- Kotak Neo daily login. TOTP/MPIN are typed by the user directly into the EA's own
+//--- panel (see MT5BridgeDashboard.mq5) and sent straight from MT5 to your own backend —
+//--- they are never seen by anyone else. Not stored anywhere on the backend either;
+//--- see docs/SECURITY.md and backend/app/kotak/auth.py.
+bool BridgeKotakLogin(const string totp, const string mpin, string &out_ucc, string &out_error)
+  {
+   string json = StringFormat("{\"totp\":\"%s\",\"mpin\":\"%s\"}", totp, mpin);
+   string body;
+   int status = BridgePost("/auth/kotak-login", json, body);
+   if(status == 200)
+     {
+      out_ucc = JsonGetString(body, "ucc");
+      out_error = "";
+      return true;
+     }
+   out_error = JsonGetString(body, "detail");
+   if(out_error == "")
+      out_error = StringFormat("HTTP %d", status);
+   return false;
+  }
+
 //--- Manual order endpoints — every call here must be preceded by a user-confirmed
 //--- MessageBox in the calling EA. This client performs no confirmation itself; it
 //--- only transmits whatever confirmation_token/confirmed_at it is given.
