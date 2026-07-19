@@ -228,6 +228,8 @@ void RefreshPortfolio()
 //+------------------------------------------------------------------+
 void OnChartEvent(const int id, const long &lparam, const double &dparam, const string &sparam)
   {
+   Print("OnChartEvent fired: id=", id, " sparam=", sparam, " lparam=", lparam);
+
    if(id != CHARTEVENT_OBJECT_CLICK)
       return;
 
